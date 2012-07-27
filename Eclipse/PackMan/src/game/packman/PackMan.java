@@ -12,6 +12,7 @@ import javax.imageio.ImageIO;
 
 import org.game.engine.Game;
 import org.game.engine.GameApplication;
+import org.game.engine.SpriteSheet;
 
 public class PackMan extends Game {
 	
@@ -19,137 +20,84 @@ public class PackMan extends Game {
 		GameApplication.start(new PackMan());
 	}
 
-	final int STEP = 2;
-	
-	BufferedImage packman;
-	int frame;
-	int reqDir, curDir;
-	int column, row;
-	
-	int columns, rows;
-	
-	ArrayList<String> lines = new ArrayList<String>();
-	BufferedImage[] mazeImages = new BufferedImage[4];
-	int mazeNo = 0;
-	Maze[] mazes = new Maze[4];
-	char[][] cells; // copy of chars in current maze
+	int reqDir, frame;
+	GameData data;
+	SpriteSheet drawer;
+	GhostsCoach ghostsCoach;
 	
 	public PackMan() {
-		// load mazes information
-		for (int m=0; m<4; m++) {
-			mazes[m] = new Maze(m);
-		}
-		
-		// update the information from mazes[mazeNo]
-		// get copy cells
-		cells = mazes[mazeNo].getCells();
-		rows = mazes[mazeNo].rows;
-		columns = mazes[mazeNo].columns;
-		// initial position for packman
-		row = mazes[mazeNo].row;
-		column = mazes[mazeNo].column;
-		// size of the game screen
-		width = mazes[mazeNo].width;
-		height = mazes[mazeNo].height;
+		data = new GameData();
+		drawer = new SpriteSheet("images/packman_sheet.png", "images/packman_sheet.info");
+		ghostsCoach = new GhostsCoach();
 		
 		title = "PackMan";
-		frame = 0;
-		curDir = reqDir = KeyEvent.VK_RIGHT;
-		try {
-			packman = ImageIO.read(new File("images/packman.png"));
-			for (int m=0; m<4; m++) {
-				mazeImages[m] = ImageIO.read(new File("images/"+m+m+".png"));
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		width = data.getWidth();
+		height = data.getHeight()+50;
+		delay = 10;
 	}
 	
 	@Override
 	public void keyPressed(KeyEvent e) {
 		int key = e.getKeyCode();
 		if (37 <= key && key <= 40) {
-			reqDir = key;
+			reqDir = key-37;
 		}
 	}
-	
 	@Override
 	public void update() {
-		frame++;
-		if (frame > 5) {
-			frame = 0;
-		}
-		
-		if (move(reqDir) == SUCCESS) {
-			curDir = reqDir;
-		} else {
-			move(curDir);
-		}
-		// updating the pills
-		if (cells[row][column] == '2') {
-			// eat the pill
-			cells[row][column] = '1';
-		} else if (cells[row][column] == '3') {
-			// eat the power pill
-			cells[row][column] = '1';
-			delay = 15;
-		}
-	}
-	
-	static int SUCCESS = 1, FAIL = 0;
-	
-	private int move(int reqDir) {
-		// current position of packman is (row, column)
-		switch (reqDir) {
-		case KeyEvent.VK_LEFT: // 37
-			if (column > 0 && mazes[mazeNo].charAt(row, column-1) != '0') {
-				column -= 1;
-				return SUCCESS;
-			} 
-			if (column == 0 && cells[row][columns-1] == '1' ) {
-//				row = row;
-				column = columns-1;
-				return SUCCESS;
+		if (!data.dead) {
+			frame++;
+			data.movePackMan(reqDir);
+			if (frame%2 == 0) {
+				data.moveGhosts(ghostsCoach.decide(data));
 			}
-			break;
-		case KeyEvent.VK_UP:   // 38
-			if (row > 0 && mazes[mazeNo].charAt(row-1, column) != '0') {
-				row -= 1;
-				return SUCCESS;
-			}
-			break;
-		case KeyEvent.VK_RIGHT: // 39
-			if (column < columns-1 && mazes[mazeNo].charAt(row, column+1) != '0') {
-				column += 1;
-				return SUCCESS;
-			}
-			break;
-		case KeyEvent.VK_DOWN:  // 40
-			if (row < rows-1 && mazes[mazeNo].charAt(row+1, column) != '0') {
-				row += 1;
-				return SUCCESS;
-			}
-			break;
-		}
-		return FAIL;
+			data.update();
+		} 
 	}
 
 	@Override
 	public void draw(Graphics2D g) {
-		g.drawImage(mazeImages[mazeNo], 0, 0, null);
-		g.setColor(Color.white);
-		for (int r=0; r<mazes[mazeNo].rows; r++) {
-			for (int c=0; c<mazes[mazeNo].columns; c++) {
-				if (cells[r][c] == '2') {
-					// draw pill
-					g.fillOval(c*STEP-3, r*STEP-3, 6, 6);
-				} else if (cells[r][c] == '3') {
-					// draw power pill
-					g.fillOval(c*STEP-6, r*STEP-6, 12, 12);
-				}
+		// clear the canvas
+		g.setColor(Color.black);
+		g.fillRect(0, 0, width, height);
+		// draw maze
+		drawer.draw(g, "mazes", data.mazeNo, 0, 0, false);
+		// draw pills
+		for (Position pill : data.pills) {
+			drawer.draw(g, "pill", 0, pill.column*2, pill.row*2, true);
+		}
+		// draw powerpills
+		for (Position powerPill : data.powerPills) {
+			drawer.draw(g, "powerpills", 0, powerPill.column*2, powerPill.row*2, true);
+		}
+		
+		// draw pacman
+		MoverInfo packman = data.packman;
+		drawer.draw(g, "packmans", packman.curDir, frame%3, packman.pos.column*2, packman.pos.row*2, true);
+		
+		// draw ghosts
+		for (int i=0; i<data.ghostInfos.length; i++) {
+			GhostInfo ginfo = data.ghostInfos[i];
+			// draw ghost i
+			if (ginfo.edibleCountDown == 0) {
+				drawer.draw(g, "ghosts", i, ginfo.curDir+frame%2, ginfo.pos.column*2, ginfo.pos.row*2, true);
+			} else {
+				drawer.draw(g, "edibleghosts", frame%2, ginfo.pos.column*2, ginfo.pos.row*2, true);
 			}
 		}
-		g.drawImage(packman.getSubimage((frame/2)*30, (curDir-37)*30, 28, 28), column*STEP-14, row*STEP-14, null);
+		
+		// draw scores
+		drawer.draw(g, "score", 0, 10, 510, false);
+		String score = ""+data.score;
+		for (int i=0; i<score.length(); i++) {
+			char c = score.charAt(score.length()-1-i);
+			drawer.draw(g, "digits", c-'0', width-i*20-20, 510, false);
+		}
+		
+		if (data.dead) {
+			g.setColor(new Color(100, 100, 100, 200));
+			g.fillRect(0, 0, width, height);
+			drawer.draw(g, "over", 0, width/2, height/2-50, true);
+		}
 	}
-
 }
