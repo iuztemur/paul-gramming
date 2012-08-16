@@ -15,8 +15,10 @@ public class SpriteSheet {
 
 	public SpriteSheet(String imageName, String infoName) {
 		try {
-			image = ImageIO.read(new File(imageName));
-			Scanner s = new Scanner(new File(infoName));
+//			image = ImageIO.read(new File(imageName));
+			image = ImageIO.read(ResourceLoader.load(imageName));
+//			Scanner s = new Scanner(new File(infoName));
+			Scanner s = new Scanner(ResourceLoader.load(infoName));
 			while (s.hasNextLine()) {
 				String line = s.nextLine().trim();
 				if (!line.startsWith("#") && !line.trim().isEmpty()) {

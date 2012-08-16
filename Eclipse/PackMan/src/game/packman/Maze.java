@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
+import org.game.engine.ResourceLoader;
+
 public class Maze {
 
 	ArrayList<String> lines;
@@ -22,7 +24,8 @@ public class Maze {
 			pills = new ArrayList<Position>();
 			powerPills = new ArrayList<Position>();
 			lines = new ArrayList<String>();
-			Scanner s = new Scanner(new File("mazes/"+m));
+//			Scanner s = new Scanner(new File("mazes/"+m));
+			Scanner s = new Scanner(ResourceLoader.load("mazes/"+m));
 			int r = 0;
 			while (s.hasNextLine()) {
 				String line = s.nextLine();
